@@ -4,7 +4,7 @@
  * the event union is validated in the domain layer, not the database.
  */
 
-import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 export const runs = pgTable("runs", {
   id: text("id").primaryKey(),
@@ -20,7 +20,7 @@ export const events = pgTable("events", {
     .notNull()
     .references(() => runs.id, { onDelete: "cascade" }),
   seq: integer("seq").notNull(),
-  at: integer("at").notNull(),
+  at: bigint("at", { mode: "number" }).notNull(),
   payload: jsonb("payload").notNull(),
 });
 

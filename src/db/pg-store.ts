@@ -37,7 +37,7 @@ export class PgStore implements Store {
       CREATE TABLE IF NOT EXISTS events (
         run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
         seq INTEGER NOT NULL,
-        at INTEGER NOT NULL,
+        at BIGINT NOT NULL,
         payload JSONB NOT NULL,
         PRIMARY KEY (run_id, seq)
       )`;
