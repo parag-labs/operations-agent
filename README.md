@@ -1,5 +1,9 @@
 # Operations Agent
 
+**▶ Live demo: https://parag-labs.github.io/operations-agent/** — runs entirely in your
+browser (the engine is pure, deterministic TypeScript, so the whole demo is client-side; no
+backend, no API key).
+
 A multi-agent AI operations assistant. You give it a goal in plain English — *"plan my trip
 to Lisbon under $5,000"* — and a **planner model proposes** a sequence of steps across
 travel, calendar, budget and tasks. Deterministic code then **validates and executes** that
@@ -36,9 +40,11 @@ pnpm install
 pnpm dev          # http://localhost:3000
 ```
 
-Type a goal, set a budget, and hit **Run**. The timeline streams each event live over SSE:
-the proposed plan, each tool call, the policy decision, the budget check. Tick *approve
-spend steps* to let the booking through and watch the run complete within budget.
+Type a goal, set a budget, and hit **Run**. The timeline reveals each event as the run
+proceeds: the proposed plan, each tool call, the policy decision, the budget check. Tick
+*approve spend steps* to let the booking through and watch the run complete within budget.
+The entire run executes client-side, which is what lets it ship as a static GitHub Pages
+demo.
 
 Reproduce the evaluation numbers below at any time:
 
@@ -48,7 +54,7 @@ pnpm eval
 
 ## Screenshots
 
-The dashboard streams a run's events as they happen — safe steps auto-run (green), the
+The dashboard reveals a run's events as they happen — safe steps auto-run (green), the
 spend step is held for approval (amber), and the budget verdict is shown at the top. (Run
 `pnpm dev` to see it live.)
 
@@ -56,8 +62,7 @@ spend step is held for approval (amber), and the budget verdict is shown at the 
 
 ```mermaid
 flowchart TB
-    U["User goal + budget"]:::blue --> API["Next.js API<br/>(SSE stream)"]:::blue
-    API --> ORCH["Orchestrator<br/>(deterministic)"]:::green
+    U["User goal + budget"]:::blue --> ORCH["Orchestrator<br/>(deterministic)"]:::green
     ORCH -->|"propose plan"| PLAN["Planner<br/>(LLM / mock)"]:::purple
     PLAN -->|"structured plan"| ZOD{"Zod<br/>validation"}:::amber
     ZOD --> ORCH
@@ -66,8 +71,8 @@ flowchart TB
     POL -->|"dangerous: hold"| HITL["Human approval"]:::amber
     HITL -->|"approved"| TOOLS
     ORCH --> LOG[("Event log")]:::green
-    LOG --> STORE[("Store<br/>memory / Postgres")]:::green
-    LOG --> API
+    LOG --> STORE[("Store<br/>in-memory demo / Postgres self-host")]:::green
+    LOG --> UI["Live UI (client-side)"]:::blue
 
     classDef blue fill:#dbeafe,stroke:#3b82f6,color:#1e3a8a;
     classDef green fill:#dcfce7,stroke:#22c55e,color:#14532d;
@@ -176,7 +181,10 @@ pnpm eval         # print the eval table above
 pnpm build
 ```
 
-To use Postgres, set `DATABASE_URL` (see `.env.example`) and run `pnpm db:migrate`.
+The persistence layer is a **Drizzle/Postgres `Store` implementation** provided for
+self-hosting and exercised by the CI integration test; the live demo and default app run
+client-side with an in-memory store. To try Postgres locally, set `DATABASE_URL` (see
+`.env.example`) and run `pnpm db:migrate`.
 
 ## Docker
 
@@ -184,8 +192,8 @@ To use Postgres, set `DATABASE_URL` (see `.env.example`) and run `pnpm db:migrat
 docker compose up --build
 ```
 
-Brings up Postgres and the app together (app on :3000). Drop `DATABASE_URL` from the compose
-file to run the app against the in-memory store instead. No secrets are committed.
+Builds and serves the app (client-side, on :3000). No database and no secrets are required —
+the run executes in the browser.
 
 ## Testing
 
@@ -230,8 +238,8 @@ operations-agent/
 │   │   ├── examples.ts         # shared example goals
 │   │   ├── eval-cli.ts         # `pnpm eval`
 │   │   └── __tests__/          # unit / security / evaluation tests
-│   ├── db/                     # Store interface + MemoryStore + Drizzle/Postgres store
-│   ├── app/                    # Next.js app router (SSE run stream, runs API, dashboard)
+│   ├── db/                     # Drizzle/Postgres Store implementation (self-host + integration-tested)
+│   ├── app/                    # Next.js app router (client-side dashboard)
 │   └── ...
 ├── ARCHITECTURE.md
 ├── SECURITY.md

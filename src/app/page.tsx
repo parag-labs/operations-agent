@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { run, MockPlanner, type ProposedStepView } from "@/engine";
 
 interface LoggedEvent {
   seq: number;
@@ -61,28 +62,39 @@ export default function Page() {
   const [events, setEvents] = useState<LoggedEvent[]>([]);
   const [done, setDone] = useState<DoneInfo | null>(null);
   const [running, setRunning] = useState(false);
-  const esRef = useRef<EventSource | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const start = useCallback(() => {
-    esRef.current?.close();
+  const start = useCallback(async () => {
+    if (timerRef.current) clearInterval(timerRef.current);
     setEvents([]);
     setDone(null);
     setRunning(true);
 
-    const params = new URLSearchParams({ goal, budget: String(budget), approveSpend: approveSpend ? "1" : "0" });
-    const es = new EventSource(`/api/run/stream?${params.toString()}`);
-    esRef.current = es;
+    // The engine is pure, deterministic TypeScript, so the whole run happens client-side -
+    // no backend and no API key. That is what lets this run as a static GitHub Pages demo.
+    const result = await run(
+      { goal, budgetUsd: Number.isFinite(budget) ? budget : 5000 },
+      {
+        planner: new MockPlanner(),
+        approve: (s: ProposedStepView) => approveSpend && (s.effect === "spend" || s.effect === "book"),
+      },
+    );
 
-    es.onmessage = (msg) => setEvents((prev) => [...prev, JSON.parse(msg.data) as LoggedEvent]);
-    es.addEventListener("done", (msg) => {
-      setDone(JSON.parse((msg as MessageEvent).data) as DoneInfo);
-      setRunning(false);
-      es.close();
-    });
-    es.onerror = () => {
-      setRunning(false);
-      es.close();
-    };
+    const logged = result.events.map((e) => ({ seq: e.seq, at: e.at, event: e.event as LoggedEvent["event"] }));
+
+    // Reveal the events one at a time for the same live, streaming feel the SSE endpoint gave.
+    let i = 0;
+    timerRef.current = setInterval(() => {
+      if (i >= logged.length) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        setDone({ status: result.status, totalCostUsd: result.totalCostUsd, withinBudget: result.withinBudget });
+        setRunning(false);
+        return;
+      }
+      const next = logged[i];
+      if (next) setEvents((prev) => [...prev, next]);
+      i++;
+    }, 90);
   }, [goal, budget, approveSpend]);
 
   return (

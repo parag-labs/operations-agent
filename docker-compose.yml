@@ -1,27 +1,20 @@
 services:
-  db:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: operations_agent
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 3s
-      timeout: 3s
-      retries: 10
-
   app:
     build: .
     ports:
       - "3000:3000"
     environment:
       NODE_ENV: production
-      # Remove DATABASE_URL to run with the in-memory store instead.
-      DATABASE_URL: postgres://postgres:postgres@db:5432/operations_agent
-    depends_on:
-      db:
-        condition: service_healthy
     restart: unless-stopped
+
+  # Optional Postgres for the self-host persistence layer (the Store implementation in
+  # src/db). The demo app runs client-side and does not require it; bring it up if you want
+  # to run `pnpm db:migrate` or the integration test against a real database.
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: postgres
+  #     POSTGRES_DB: operations_agent
+  #   ports:
+  #     - "5432:5432"
